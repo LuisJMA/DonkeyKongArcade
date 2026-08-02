@@ -3,38 +3,42 @@ package com.donkeykong.view;
 import com.donkeykong.controller.GameController;
 import com.donkeykong.model.Platform;
 import com.donkeykong.model.Player;
-import javax.swing.JPanel;
-import javax.swing.Timer;
-import java.awt.Color;
-import java.awt.Graphics;
+
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
 public class GamePanel extends JPanel implements ActionListener {
-    private Timer gameTimer;
+    private Timer timer;
     private Player player;
-    private GameController controller;
     private List<Platform> platforms;
+    private GameController controller;
 
     public GamePanel() {
         setBackground(Color.BLACK);
         setFocusable(true);
 
-        // Inicializar plataformas del escenario
+        // Inicializar las 5 plataformas clásicas estilo arcade
         platforms = new ArrayList<>();
-        platforms.add(new Platform(100, 500, 600, 20)); // Suelo principal
-        platforms.add(new Platform(200, 380, 400, 20)); // Plataforma intermedia
-        platforms.add(new Platform(100, 260, 400, 20)); // Plataforma superior
+        platforms.add(new Platform(50, 520, 700, 25)); // Suelo base
+        platforms.add(new Platform(100, 430, 600, 20)); // Plataforma 1
+        platforms.add(new Platform(50, 340, 600, 20));  // Plataforma 2
+        platforms.add(new Platform(100, 250, 600, 20)); // Plataforma 3
+        platforms.add(new Platform(150, 160, 500, 20)); // Plataforma superior
 
-        // Inicializar jugador y controles
-        player = new Player(120, 440);
+        // Jugador proporcional
+        player = new Player(80, 470, 24, 32);
+
+        // Controlador de teclado
         controller = new GameController(player);
         addKeyListener(controller);
 
-        gameTimer = new Timer(16, this);
-        gameTimer.start();
+        // Bucle del juego a 60 FPS (16 ms)
+        timer = new Timer(16, this);
+        timer.start();
     }
 
     @Override
@@ -46,16 +50,20 @@ public class GamePanel extends JPanel implements ActionListener {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        
-        g.setColor(Color.WHITE);
-        g.drawString("Usa A-D para moverte y W o Flecha Arriba para saltar", 50, 30);
-        
-        // Dibujar plataformas
+        Graphics2D g2d = (Graphics2D) g;
+
+        // Renderizar instrucciones
+        g2d.setColor(Color.WHITE);
+        g2d.drawString("Usa A-D para moverte y W o Flecha Arriba para saltar", 50, 30);
+
+        // Renderizar plataformas
+        g2d.setColor(Color.CYAN);
         for (Platform p : platforms) {
-            p.draw(g);
+            g2d.fillRect(p.getX(), p.getY(), p.getWidth(), p.getHeight());
         }
 
-        // Dibujar jugador
-        player.draw(g);
+        // Renderizar jugador
+        g2d.setColor(Color.RED);
+        g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
     }
 }
