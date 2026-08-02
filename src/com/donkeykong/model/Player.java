@@ -13,7 +13,7 @@ public class Player {
 
     private static final double GRAVITY = 0.5;
     private static final double JUMP_STRENGTH = -10.0;
-    private static final double MOVE_SPEED = 3.0;
+    
 
     public Player(int startX, int startY) {
         this.x = startX;
