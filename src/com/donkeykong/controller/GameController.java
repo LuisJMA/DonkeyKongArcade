@@ -16,13 +16,11 @@ public class GameController extends KeyAdapter {
         int key = e.getKeyCode();
 
         if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-            player.setXSpeed(-4);
+            player.setXSpeed(-3.0);
         } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-            player.setXSpeed(4);
+            player.setXSpeed(3.0);
         } else if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
-            player.setYSpeed(-4);
-        } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-            player.setYSpeed(4);
+            player.jump();
         }
     }
 
@@ -32,9 +30,6 @@ public class GameController extends KeyAdapter {
 
         if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
             player.setXSpeed(0);
-        }
-        if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W || key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-            player.setYSpeed(0);
         }
     }
 }
