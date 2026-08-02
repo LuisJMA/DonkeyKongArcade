@@ -1,9 +1,5 @@
 package com.donkeykong.model;
 
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.Rectangle;
-
 public class Platform {
     private int x, y, width, height;
 
@@ -14,12 +10,8 @@ public class Platform {
         this.height = height;
     }
 
-    public void draw(Graphics g) {
-        g.setColor(Color.BLUE);
-        g.fillRect(x, y, width, height);
-    }
-
-    public Rectangle getBounds() {
-        return new Rectangle(x, y, width, height);
-    }
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
 }
