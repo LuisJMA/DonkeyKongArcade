@@ -21,16 +21,16 @@ public class GamePanel extends JPanel implements ActionListener {
         setBackground(Color.BLACK);
         setFocusable(true);
 
-        // Inicializar las 5 plataformas clásicas estilo arcade
+       // Inicializar las 5 plataformas estilo zigzag clásico con menor ancho (más espacio libre)
         platforms = new ArrayList<>();
-        platforms.add(new Platform(50, 520, 700, 25)); // Suelo base
-        platforms.add(new Platform(100, 430, 600, 20)); // Plataforma 1
-        platforms.add(new Platform(50, 340, 600, 20));  // Plataforma 2
-        platforms.add(new Platform(100, 250, 600, 20)); // Plataforma 3
-        platforms.add(new Platform(150, 160, 500, 20)); // Plataforma superior
+        platforms.add(new Platform(50, 550, 620, 10));  // Suelo base (ancho para moverse al inicio)
+        platforms.add(new Platform(50, 420, 625, 10)); // Plataforma 1 (hacia la izquierda/centro)
+        platforms.add(new Platform(50, 300, 620, 10)); // Plataforma 2 (hacia la derecha)
+        platforms.add(new Platform(50, 195, 610, 10)); // Plataforma 3 (hacia la izquierda/centro)
+        platforms.add(new Platform(50, 85, 600, 10)); // Plataforma superior (Donkey Kong)
 
-        // Jugador proporcional
-        player = new Player(80, 470, 24, 32);
+        // Ajustamos la posición inicial del jugador al suelo base
+        player = new Player(80, 480, 14, 22);
 
         // Controlador de teclado
         controller = new GameController(player);
@@ -47,11 +47,11 @@ public class GamePanel extends JPanel implements ActionListener {
 
         // Verificar si cayó al vacío
         if (player.hasFallenOffScreen(getHeight())) {
-            player.loseLife(80, 470);
+            player.loseLife(80, 480);
             if (player.getLives() <= 0) {
                 // Aquí manejaremos el Game Over definitivo más adelante
                 // Por ahora reinicia las vidas para pruebas continuas
-                player = new Player(80, 470, 24, 32);
+                player = new Player(80, 480, 14, 22);
                 controller = new GameController(player);
                 addKeyListener(controller);
             }
