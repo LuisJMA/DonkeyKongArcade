@@ -7,6 +7,7 @@ public class Player {
     private int x, y, width, height;
     private int xVelocity = 0;
     private double yVelocity = 0;
+    private int lives = 3; // Sistema de 3 vidas
     
     private final double GRAVITY = 0.5;
     private final double JUMP_STRENGTH = -10.0;
@@ -24,9 +25,9 @@ public class Player {
         x += xVelocity;
         for (Platform p : platforms) {
             if (getBounds().intersects(new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight()))) {
-                if (xVelocity > 0) { // Chocaendo hacia la derecha
+                if (xVelocity > 0) {
                     x = p.getX() - width;
-                } else if (xVelocity < 0) { // Chocando hacia la izquierda
+                } else if (xVelocity < 0) {
                     x = p.getX() + p.getWidth();
                 }
             }
@@ -42,13 +43,13 @@ public class Player {
             Rectangle platRect = new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight());
 
             if (playerRect.intersects(platRect)) {
-                if (yVelocity > 0) { // Cayendo (aterrizando sobre la plataforma)
+                if (yVelocity > 0) { // Cayendo
                     y = p.getY() - height;
                     yVelocity = 0;
                     isJumping = false;
-                } else if (yVelocity < 0) { // Saltando y golpeando la plataforma por debajo
+                } else if (yVelocity < 0) { // Golpeando techo
                     y = p.getY() + p.getHeight();
-                    yVelocity = 0; // Se frena al golpear el techo
+                    yVelocity = 0;
                 }
             }
         }
@@ -69,10 +70,25 @@ public class Player {
         this.xVelocity = vel;
     }
 
-    public Rectangle getBounds() {
-        return new Rectangle(x, y, width, height);
+    public boolean hasFallenOffScreen(int screenHeight) {
+        return y > screenHeight;
     }
 
+    public void loseLife(int startX, int startY) {
+        lives--;
+        resetPosition(startX, startY);
+    }
+
+    public void resetPosition(int startX, int startY) {
+        this.x = startX;
+        this.y = startY;
+        this.xVelocity = 0;
+        this.yVelocity = 0;
+        this.isJumping = false;
+    }
+
+    public int getLives() { return lives; }
+    public Rectangle getBounds() { return new Rectangle(x, y, width, height); }
     public int getX() { return x; }
     public int getY() { return y; }
     public int getWidth() { return width; }
