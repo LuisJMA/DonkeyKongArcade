@@ -52,7 +52,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        player.update(platforms);
+        player.update(platforms, ladders);
 
         // Verificar si cayó al vacío
         if (player.hasFallenOffScreen(getHeight())) {
@@ -76,7 +76,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
         // Renderizar instrucciones y estado
         g2d.setColor(Color.WHITE);
-        g2d.drawString("Usa A-D para moverte y W o Flecha Arriba para saltar", 50, 30);
+        g2d.drawString("Usa A-D para moverte y W para saltar, Usa E para subir escaleras", 50, 30);
         g2d.drawString("Vidas: " + player.getLives(), 50, 55);
 
         // Renderizar escaleras
