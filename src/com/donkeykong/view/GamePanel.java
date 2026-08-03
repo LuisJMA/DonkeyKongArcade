@@ -44,6 +44,19 @@ public class GamePanel extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         player.update(platforms);
+
+        // Verificar si cayó al vacío
+        if (player.hasFallenOffScreen(getHeight())) {
+            player.loseLife(80, 470);
+            if (player.getLives() <= 0) {
+                // Aquí manejaremos el Game Over definitivo más adelante
+                // Por ahora reinicia las vidas para pruebas continuas
+                player = new Player(80, 470, 24, 32);
+                controller = new GameController(player);
+                addKeyListener(controller);
+            }
+        }
+
         repaint();
     }
 
@@ -52,9 +65,10 @@ public class GamePanel extends JPanel implements ActionListener {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // Renderizar instrucciones
+        // Renderizar instrucciones y estado
         g2d.setColor(Color.WHITE);
         g2d.drawString("Usa A-D para moverte y W o Flecha Arriba para saltar", 50, 30);
+        g2d.drawString("Vidas: " + player.getLives(), 50, 55);
 
         // Renderizar plataformas
         g2d.setColor(Color.CYAN);
