@@ -10,9 +10,13 @@ public class Player {
     private int lives = 3;
     
     private final double GRAVITY = 0.5;
-    private final double JUMP_STRENGTH = -7.5;
+    private final double JUMP_STRENGTH = -6.5;
     private boolean isOnGround = false;
-    private boolean jumpRequested = false; // Bandera para registrar la intención de salto
+    private boolean jumpRequested = false;
+
+    private boolean isOnLadder = false;
+    private boolean isClimbing = false;
+    private Ladder currentLadder = null;
 
     public Player(int x, int y, int width, int height) {
         this.x = x;
@@ -21,68 +25,117 @@ public class Player {
         this.height = height;
     }
 
-    public void update(List<Platform> platforms) {
-        // 1. Movimiento horizontal y colisiones en X
-        x += xVelocity;
-        for (Platform p : platforms) {
-            if (getBounds().intersects(new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight()))) {
-                if (xVelocity > 0) {
-                    x = p.getX() - width;
-                } else if (xVelocity < 0) {
-                    x = p.getX() + p.getWidth();
-                }
+    public void update(List<Platform> platforms, List<Ladder> ladders) {
+        // Verificar colisión con escaleras
+        isOnLadder = false;
+        for (Ladder ladder : ladders) {
+            if (getBounds().intersects(ladder.getBounds())) {
+                isOnLadder = true;
+                currentLadder = ladder;
+                break;
             }
         }
 
-        // Asumimos que inicialmente no está en el suelo antes de evaluar colisiones verticales
-        isOnGround = false;
-
-        // 2. Aplicar gravedad y movimiento vertical
-        yVelocity += GRAVITY;
-        y += (int) yVelocity;
-
-        // 3. Colisiones verticales (Suelos y Techos)
-        for (Platform p : platforms) {
-            Rectangle playerRect = getBounds();
-            Rectangle platRect = new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight());
-
-            if (playerRect.intersects(platRect)) {
-                if (yVelocity > 0) { // Cayendo (aterrizando)
-                    y = p.getY() - height;
-                    yVelocity = 0;
-                    isOnGround = true;
-                } else if (yVelocity < 0) { // Golpeando techo
-                    y = p.getY() + p.getHeight();
-                    yVelocity = 0;
-                }
-            }
+        if (!isOnLadder) {
+            isClimbing = false;
+            currentLadder = null;
         }
 
-        // Si el jugador había presionado saltar y ahora ya tocó el suelo, ejecutamos el salto inmediatamente
-        if (jumpRequested && isOnGround) {
-            yVelocity = JUMP_STRENGTH;
+        if (isClimbing) {
+            yVelocity = 0;
+            if (currentLadder != null) {
+                // Centrar horizontalmente al jugador en la escalera y bloquear movimiento horizontal externo
+                x = currentLadder.getX() + (currentLadder.getWidth() - width) / 2;
+            }
+        } else {
+            // Movimiento horizontal (A y D) solo cuando NO está escalando
+            x += xVelocity;
+            for (Platform p : platforms) {
+                if (getBounds().intersects(new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight()))) {
+                    if (xVelocity > 0) {
+                        x = p.getX() - width;
+                    } else if (xVelocity < 0) {
+                        x = p.getX() + p.getWidth();
+                    }
+                }
+            }
+
             isOnGround = false;
-            jumpRequested = false; // Consumimos la petición
+            yVelocity += GRAVITY;
+            y += (int) yVelocity;
+
+            // Colisiones verticales con plataformas (SOLO CUANDO NO ESTÁ ESCALANDO)
+            for (Platform p : platforms) {
+                Rectangle playerRect = getBounds();
+                Rectangle platRect = new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight());
+
+                if (playerRect.intersects(platRect)) {
+                    if (yVelocity > 0) {
+                        y = p.getY() - height;
+                        yVelocity = 0;
+                        isOnGround = true;
+                    } else if (yVelocity < 0) {
+                        y = p.getY() + p.getHeight();
+                        yVelocity = 0;
+                    }
+                }
+            }
+
+            if (jumpRequested && isOnGround) {
+                yVelocity = JUMP_STRENGTH;
+                isOnGround = false;
+                jumpRequested = false;
+            }
         }
 
-        // Límites de la pantalla
         if (x < 0) x = 0;
         if (x > 800 - width) x = 800 - width;
     }
 
+    public void climbUp() {
+        if (isOnLadder) {
+            isClimbing = true;
+            y -= 3; // Velocidad de subida
+
+            // Si llega arriba de la escalera, sale de ella y se posicione justo encima
+            if (currentLadder != null && y < currentLadder.getY()) {
+                isClimbing = false;
+                y = currentLadder.getY() - height;
+                currentLadder = null;
+            }
+        }
+    }
+
+    public void climbDown() {
+        if (isOnLadder) {
+            isClimbing = true;
+            y += 3; // Velocidad de bajada
+            if (currentLadder != null && y > currentLadder.getY() + currentLadder.getHeight()) {
+                isClimbing = false;
+                currentLadder = null;
+            }
+        }
+    }
+
     public void jump() {
-        if (isOnGround) {
+        if (isClimbing) {
+            isClimbing = false;
+            currentLadder = null;
+            yVelocity = JUMP_STRENGTH;
+            isOnGround = false;
+        } else if (isOnGround) {
             yVelocity = JUMP_STRENGTH;
             isOnGround = false;
             jumpRequested = false;
         } else {
-            // Si pulsa en el aire o justo antes de aterrizar, guardamos la intención por si toca tierra de inmediato
             jumpRequested = true;
         }
     }
 
     public void setXVelocity(int vel) {
-        this.xVelocity = vel;
+        if (!isClimbing) {
+            this.xVelocity = vel;
+        }
     }
 
     public boolean hasFallenOffScreen(int screenHeight) {
@@ -101,8 +154,11 @@ public class Player {
         this.yVelocity = 0;
         this.isOnGround = false;
         this.jumpRequested = false;
+        this.isClimbing = false;
+        this.currentLadder = null;
     }
 
+    public boolean isClimbing() { return isClimbing; }
     public int getLives() { return lives; }
     public Rectangle getBounds() { return new Rectangle(x, y, width, height); }
     public int getX() { return x; }
