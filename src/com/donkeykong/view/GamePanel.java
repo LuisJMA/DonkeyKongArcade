@@ -2,6 +2,7 @@ package com.donkeykong.view;
 
 import com.donkeykong.controller.GameController;
 import com.donkeykong.model.Barrel;
+import com.donkeykong.model.Item;
 import com.donkeykong.model.Ladder;
 import com.donkeykong.model.Platform;
 import com.donkeykong.model.Player;
@@ -17,21 +18,24 @@ public class GamePanel extends JPanel implements ActionListener {
     private Timer timer;
     private Player player;
     private List<Platform> platforms;
-    private List<Ladder> ladders; // Se mantiene solo para que el jugador suba si gustas
+    private List<Ladder> ladders; 
     private GameController controller;
 
     private List<Barrel> barrels;
     private int barrelSpawnTimer = 0;
     private int gameTicks = 0;
     private final int MAX_GAME_TICKS = 70 * 60;
-    private final int GRACE_PERIOD_TICKS = 10 * 60; // Los primeros 300 ticks (5 segundos)
+    private final int GRACE_PERIOD_TICKS = 10 * 60; 
+
+    private List<Item> items = new ArrayList<>();
+    private int itemSpawnTimer = 0;
+    private int itemsCollected = 0;
+    private final int TOTAL_ITEMS_TO_WIN = 12;
 
     public GamePanel() {
         setBackground(Color.BLACK);
         setFocusable(true);
 
-        // Definimos las plataformas como rampas inclinadas en zigzag
-        
         platforms = new ArrayList<>();
         platforms.add(new Platform(40, 520, 710, 560)); // Nivel 0 (Base)
         platforms.add(new Platform(150, 460, 720, 420)); // Nivel 1 
@@ -39,12 +43,11 @@ public class GamePanel extends JPanel implements ActionListener {
         platforms.add(new Platform(150, 260, 720, 220)); // Nivel 3 
         platforms.add(new Platform(70, 120, 620, 160)); // Nivel 4 (Superior)
 
-        // Escaleras cuadradas perfectamente en los extremos de las rampas
         ladders = new ArrayList<>();
-        ladders.add(new Ladder(130, 460, 17, 65)); // Conecta el extremo derecho del Nivel 0 con el Nivel 1
-        ladders.add(new Ladder(620, 360, 17, 65));  // Conecta el extremo izquierdo del Nivel 1 con el Nivel 2
-        ladders.add(new Ladder(130, 260, 17, 65)); // Conecta el extremo derecho del Nivel 2 con el Nivel 3
-        ladders.add(new Ladder(620, 160, 17, 65));  // Conecta el extremo izquierdo del Nivel 3 con el Nivel Superior
+        ladders.add(new Ladder(130, 460, 17, 65)); 
+        ladders.add(new Ladder(620, 360, 17, 65));  
+        ladders.add(new Ladder(130, 260, 17, 65)); 
+        ladders.add(new Ladder(620, 160, 17, 65));  
 
         barrels = new ArrayList<>();
         player = new Player(670, 530, 14, 22);
@@ -56,152 +59,197 @@ public class GamePanel extends JPanel implements ActionListener {
         timer.start();
     }
 
+    // Método auxiliar centralizado para reiniciar el juego de forma limpia y segura
+    private void resetGame() {
+        gameTicks = 0;
+        itemsCollected = 0;
+        itemSpawnTimer = 0;
+        barrelSpawnTimer = 0;
+
+        if (items == null) {
+            items = new ArrayList<>();
+        } else {
+            items.clear();
+        }
+
+        if (barrels == null) {
+            barrels = new ArrayList<>();
+        } else {
+            barrels.clear(); // Limpia y borra todos los barriles activos inmediatamente
+        }
+
+        player = new Player(670, 530, 14, 22); 
+        controller = new GameController(player);
+        addKeyListener(controller);
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
-        // Incrementamos el contador del tiempo de juego
+        boolean shouldReset = false;
+
         if (gameTicks < MAX_GAME_TICKS) {
             gameTicks++;
         } else {
-            // Si el tiempo llega al límite, se acaba el juego por completo (Game Over por tiempo)
-            gameTicks = 0;
-            player = new Player(670, 530, 14, 22); 
-            barrels.clear(); 
-            controller = new GameController(player);
-            addKeyListener(controller);
+            shouldReset = true; // Game Over por tiempo
         }
 
-        // EL JUGADOR SOLO SE ACTUALIZA SI YA PASÓ EL PERIODO DE GRACIA (Primeros 5 segundos)
-        if (gameTicks > GRACE_PERIOD_TICKS) {
+        if (gameTicks > GRACE_PERIOD_TICKS && !shouldReset) {
             player.update(platforms, ladders);
 
-            // Si el jugador cae fuera de la pantalla, consume una vida
             if (player.hasFallenOffScreen(getHeight())) {
                 player.loseLife(670, 530);
                 if (player.getLives() <= 0) {
-                    player = new Player(670, 530, 14, 22);
-                    controller = new GameController(player);
-                    addKeyListener(controller);
+                    shouldReset = true;
                 }
             }
         }
 
-        // GENERACIÓN DE BARRILES (Empieza de inmediato para llenar las rampas)
-        // Calculamos el progreso basado estrictamente en los 60 segundos de juego activo
         int activeTicks = Math.max(0, gameTicks - GRACE_PERIOD_TICKS);
         int effectiveMaxTicks = 60 * 60;
 
-        // Intervalo de spawn dinámico progresivo
-        int currentSpawnInterval = (int) (100 - (55 * ((double) activeTicks / effectiveMaxTicks)));
-
-        barrelSpawnTimer++;
-        if (barrelSpawnTimer >= currentSpawnInterval) {
-            Platform topPlatform = platforms.get(4);
-            int startX = 100;
-            int startY = topPlatform.getYAt(startX) - 24;
+        // --- APARICIÓN DE ÍTEMS ---
+        if (!shouldReset && gameTicks > 0 && gameTicks % 600 == 0 && itemSpawnTimer != gameTicks) {
+            itemSpawnTimer = gameTicks; 
             
-            Barrel newBarrel = new Barrel(startX, startY);
-            newBarrel.setFalling(false);
-            
-            // Aumento progresivo de la velocidad del barril
-            double progressiveSpeed = 3.0 + (2.5 * ((double) activeTicks / effectiveMaxTicks));
-            newBarrel.setSpeedX(progressiveSpeed);
-
-            barrels.add(newBarrel);
-            barrelSpawnTimer = 0;
+            for (int i = 0; i < 2; i++) {
+                Platform p = platforms.get((int)(Math.random() * platforms.size()));
+                int randomX = Math.min(p.getX1(), p.getX2()) + (int)(Math.random() * Math.abs(p.getX2() - p.getX1()));
+                int itemY = p.getYAt(randomX) - 15; 
+                
+                items.add(new Item(randomX, itemY));
+            }
         }
 
-        java.util.Iterator<Barrel> iterator = barrels.iterator();
-        while (iterator.hasNext()) {
-            Barrel barrel = iterator.next();
-            barrel.update();
-
-            // --- NUEVO: COLISIÓN BARRIL VS JUGADOR ---
-            // Creamos rectángulos de colisión aproximados para ambos
+        // --- COLISIÓN JUGADOR VS ÍTEMS ---
+        if (!shouldReset) {
+            java.util.Iterator<Item> itemIterator = items.iterator();
             Rectangle playerRect = new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight());
-            Rectangle barrelRect = new Rectangle(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
 
-            if (playerRect.intersects(barrelRect)) {
-                // El jugador choca con un barril: pierde una vida y se reinicia su posición
-                player.loseLife(670, 530);
-                iterator.remove(); // Destruimos el barril que impactó
+            while (itemIterator.hasNext()) {
+                Item item = itemIterator.next();
+                Rectangle itemRect = new Rectangle(item.getX(), item.getY(), item.getWidth(), item.getHeight());
 
-                // Si se queda sin vidas, se reinicia el juego por completo
-                if (player.getLives() <= 0) {
-                    player = new Player(670, 530, 14, 22);
-                    controller = new GameController(player);
-                    addKeyListener(controller);
-                }
-                continue; // Pasamos al siguiente barril para evitar errores en el iterador
-            }
-            // ------------------------------------------
-
-            
-
-            boolean onAnyPlatform = false;
-            int centerX = barrel.getX() + barrel.getWidth() / 2;
-
-            // 1. SI ESTÁ RODANDO SOBRE UNA RAMPA
-            if (!barrel.isFalling()) {
-                for (int i = 0; i < platforms.size(); i++) {
-                    Platform p = platforms.get(i);
-                    int minX = Math.min(p.getX1(), p.getX2());
-                    int maxX = Math.max(p.getX1(), p.getX2());
-
-                    // Si está en la plataforma base (índice 0) y sale de los límites, se destruye
-                    if (i == 0 && (centerX < minX || centerX > maxX)) {
-                        iterator.remove();
+                if (playerRect.intersects(itemRect)) {
+                    itemIterator.remove();
+                    itemsCollected++;
+                    
+                    if (itemsCollected >= TOTAL_ITEMS_TO_WIN) {
+                        shouldReset = true;
                         break;
                     }
-
-                    // Si el centro está estrictamente dentro del rango horizontal de la rampa
-                    if (centerX >= minX && centerX <= maxX) {
-                        int expectedY = p.getYAt(centerX);
-                        
-                        // Mantenemos el barril pegado a la pendiente
-                        if (Math.abs((barrel.getY() + barrel.getHeight()) - expectedY) < 25) {
-                            barrel.setY(expectedY - barrel.getHeight());
-                            onAnyPlatform = true;
-                            break;
-                        }
-                    }
-                }
-
-                // En cuanto el centro del barril rebase el ancho de la rampa, se activa la caída libre vertical
-                if (!onAnyPlatform) {
-                    barrel.setFalling(true);
                 }
             }
-            // 2. SI ESTÁ CAYENDO EN LÍNEA RECTA AL VACÍO
-            else {
-                for (int i = 0; i < platforms.size(); i++) {
-                    Platform p = platforms.get(i);
-                    int minX = Math.min(p.getX1(), p.getX2()) - 10; // Margen extra a la izquierda
-                    int maxX = Math.max(p.getX1(), p.getX2()) + 10; // Margen extra a la derecha
+        }
 
-                    // Si cae dentro del ancho horizontal (con margen) de la plataforma inferior
-                    if (centerX >= minX && centerX <= maxX) {
-                        int expectedY = p.getYAt(centerX);
-                        
-                        // Si la base del barril toca o reasa ligeramente la altura de la rampa bajando
-                        if (barrel.getY() + barrel.getHeight() >= expectedY && 
-                            barrel.getY() + barrel.getHeight() <= expectedY + 25 && 
-                            barrel.getSpeedY() > 0) {
+        // --- GENERACIÓN DE BARRILES ---
+        int currentSpawnInterval = (int) (100 - (55 * ((double) activeTicks / effectiveMaxTicks)));
+
+        if (!shouldReset) {
+            barrelSpawnTimer++;
+            if (barrelSpawnTimer >= currentSpawnInterval) {
+                Platform topPlatform = platforms.get(4);
+                int startX = 100;
+                int startY = topPlatform.getYAt(startX) - 24;
+                
+                Barrel newBarrel = new Barrel(startX, startY);
+                newBarrel.setFalling(false);
+                
+                double progressiveSpeed = 3.0 + (2.5 * ((double) activeTicks / effectiveMaxTicks));
+                newBarrel.setSpeedX(progressiveSpeed);
+
+                barrels.add(newBarrel);
+                barrelSpawnTimer = 0;
+            }
+        }
+
+        // --- ACTUALIZACIÓN Y COLISIÓN DE BARRILES ---
+        if (!shouldReset) {
+            Rectangle playerRect = new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+            java.util.Iterator<Barrel> iterator = barrels.iterator();
+            
+            while (iterator.hasNext()) {
+                Barrel barrel = iterator.next();
+                barrel.update();
+
+                Rectangle barrelRect = new Rectangle(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
+
+                if (playerRect.intersects(barrelRect) && gameTicks > GRACE_PERIOD_TICKS) {
+                    player.loseLife(670, 530);
+                    iterator.remove(); 
+
+                    if (player.getLives() <= 0) {
+                        shouldReset = true;
+                        break;
+                    }
+                    continue; 
+                }
+
+                boolean onAnyPlatform = false;
+                int centerX = barrel.getX() + barrel.getWidth() / 2;
+
+                if (!barrel.isFalling()) {
+                    boolean removeThisBarrel = false;
+                    for (int i = 0; i < platforms.size(); i++) {
+                        Platform p = platforms.get(i);
+                        int minX = Math.min(p.getX1(), p.getX2());
+                        int maxX = Math.max(p.getX1(), p.getX2());
+
+                        if (i == 0 && (centerX < minX || centerX > maxX)) {
+                            removeThisBarrel = true;
+                            break;
+                        }
+
+                        if (centerX >= minX && centerX <= maxX) {
+                            int expectedY = p.getYAt(centerX);
                             
-                            barrel.setY(expectedY - barrel.getHeight());
-                            barrel.setFalling(false);
-                            barrel.setSpeedY(0);
-                            barrel.reverseDirection(); // Cambia de sentido para rodar en dirección contraria
-                            break;
+                            if (Math.abs((barrel.getY() + barrel.getHeight()) - expectedY) < 25) {
+                                barrel.setY(expectedY - barrel.getHeight());
+                                onAnyPlatform = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (removeThisBarrel) {
+                        iterator.remove();
+                        continue;
+                    }
+
+                    if (!onAnyPlatform) {
+                        barrel.setFalling(true);
+                    }
+                } else {
+                    for (int i = 0; i < platforms.size(); i++) {
+                        Platform p = platforms.get(i);
+                        int minX = Math.min(p.getX1(), p.getX2()) - 10; 
+                        int maxX = Math.max(p.getX1(), p.getX2()) + 10; 
+
+                        if (centerX >= minX && centerX <= maxX) {
+                            int expectedY = p.getYAt(centerX);
+                            
+                            if (barrel.getY() + barrel.getHeight() >= expectedY && 
+                                barrel.getY() + barrel.getHeight() <= expectedY + 25 && 
+                                barrel.getSpeedY() > 0) {
+                                
+                                barrel.setY(expectedY - barrel.getHeight());
+                                barrel.setFalling(false);
+                                barrel.setSpeedY(0);
+                                barrel.reverseDirection(); 
+                                break;
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Si ocurrió un evento de reseteo o game over, se ejecuta aquí de forma segura fuera de los iteradores
+        if (shouldReset) {
+            resetGame();
         }
 
         repaint();
     }
-
-
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -211,17 +259,16 @@ public class GamePanel extends JPanel implements ActionListener {
         g2d.setColor(Color.WHITE);
         g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
         g2d.drawString("Vidas: " + player.getLives(), 50, 55);
+        g2d.drawString("Ítems: " + itemsCollected + "/" + TOTAL_ITEMS_TO_WIN, 350, 55);
 
-        // --- CÁLCULO Y PINTADO DEL TEMPORIZADOR CON PERIODO DE GRACIA ---
         if (gameTicks < GRACE_PERIOD_TICKS) {
             g2d.setColor(Color.YELLOW);
             g2d.drawString("¡PREPÁRATE!", 200, 55);
         } else {
             int activeTicks = gameTicks - GRACE_PERIOD_TICKS;
             int secondsPassed = activeTicks / 60;
-            int timeLeft = Math.max(0, 60 - secondsPassed); // Cuenta regresiva de 60 a 0
+            int timeLeft = Math.max(0, 60 - secondsPassed); 
             
-            // Si quedan 10 segundos o menos, cambia a rojo
             if (timeLeft <= 10) {
                 g2d.setColor(Color.RED);
             } else {
@@ -230,28 +277,28 @@ public class GamePanel extends JPanel implements ActionListener {
             
             g2d.drawString("Tiempo: " + timeLeft + "s", 200, 55);
         }
-        // ----------------------------------------------------------------
 
-        // Dibujar escaleras (opcional para el jugador)
+        g2d.setColor(Color.YELLOW);
+        for (Item item : items) {
+            g2d.fillOval(item.getX(), item.getY(), item.getWidth(), item.getHeight());
+        }
+
         g2d.setColor(new Color(180, 180, 180));
         for (Ladder ladder : ladders) {
             g2d.fillRect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
         }
 
-        // Dibujar plataformas inclinadas (líneas o rampas)
         g2d.setColor(Color.RED);
         g2d.setStroke(new BasicStroke(8)); 
         for (Platform p : platforms) {
             g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
         }
 
-        // Dibujar barriles
         g2d.setColor(new Color(139, 69, 19));
         for (Barrel barrel : barrels) {
             g2d.fillOval(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
         }
 
-        // Dibujar jugador
         g2d.setColor(Color.RED);
         g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
     }
