@@ -1,6 +1,9 @@
 package com.donkeykong.view;
 
 import javax.swing.*;
+
+import com.donkeykong.audio.SoundManager;
+
 import java.awt.*;
 
 public class MainFrame extends JFrame implements GameEventListener {
@@ -12,12 +15,16 @@ public class MainFrame extends JFrame implements GameEventListener {
     private MenuPanel menuPanel;
     private GamePanel gamePanel;
 
+    private SoundManager soundManager;
+
     public MainFrame() {
         setTitle("Donkey Kong Arcade");
         setSize(WIDTH, HEIGHT);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
+
+        soundManager = new SoundManager();
 
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
@@ -32,31 +39,47 @@ public class MainFrame extends JFrame implements GameEventListener {
         add(mainContainer);
         
         cardLayout.show(mainContainer, "MENU");
+        soundManager.playBackgroundMusic("/com/donkeykong/audio/menu.wav");
     }
 
     private void startGame() {
+
+        soundManager.stopBackgroundMusic();
+
         // Creamos el panel de juego pasándole este frame como listener
         gamePanel = new GamePanel(this);
         mainContainer.add(gamePanel, "GAME");
         
         cardLayout.show(mainContainer, "GAME");
         gamePanel.requestFocusInWindow(); // Asegura que las teclas funcionen inmediatamente
+
+        soundManager.playBackgroundMusic("/com/donkeykong/audio/background.wav");
     }
 
     @Override
     public void onGameOver(String message) {
+        soundManager.stopBackgroundMusic();
         JOptionPane.showMessageDialog(this, message, "Fin del Juego", JOptionPane.ERROR_MESSAGE);
         cardLayout.show(mainContainer, "MENU");
+
+        soundManager.playBackgroundMusic("/com/donkeykong/audio/menu.wav");
     }
 
     @Override
     public void onVictory(String message) {
+        soundManager.stopBackgroundMusic();
         JOptionPane.showMessageDialog(this, message, "¡Victoria!", JOptionPane.INFORMATION_MESSAGE);
         cardLayout.show(mainContainer, "MENU");
+
+        soundManager.playBackgroundMusic("/com/donkeykong/audio/menu.wav");
+
     }
 
     @Override
     public void onReturnToMenu() {
+        soundManager.stopBackgroundMusic();
         cardLayout.show(mainContainer, "MENU");
+
+        soundManager.playBackgroundMusic("/com/donkeykong/audio/menu.wav");
     }
 }
