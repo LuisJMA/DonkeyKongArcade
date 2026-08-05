@@ -47,7 +47,7 @@ public class GamePanel extends JPanel implements ActionListener {
         ladders.add(new Ladder(620, 160, 17, 65));  // Conecta el extremo izquierdo del Nivel 3 con el Nivel Superior
 
         barrels = new ArrayList<>();
-        player = new Player(670, 480, 14, 22);
+        player = new Player(670, 530, 14, 22);
 
         controller = new GameController(player);
         addKeyListener(controller);
@@ -64,7 +64,7 @@ public class GamePanel extends JPanel implements ActionListener {
         } else {
             // Si el tiempo llega al límite, se acaba el juego por completo (Game Over por tiempo)
             gameTicks = 0;
-            player = new Player(670, 480, 14, 22); 
+            player = new Player(670, 530, 14, 22); 
             barrels.clear(); 
             controller = new GameController(player);
             addKeyListener(controller);
@@ -76,9 +76,9 @@ public class GamePanel extends JPanel implements ActionListener {
 
             // Si el jugador cae fuera de la pantalla, consume una vida
             if (player.hasFallenOffScreen(getHeight())) {
-                player.loseLife(670, 480);
+                player.loseLife(670, 530);
                 if (player.getLives() <= 0) {
-                    player = new Player(670, 480, 14, 22);
+                    player = new Player(670, 530, 14, 22);
                     controller = new GameController(player);
                     addKeyListener(controller);
                 }
@@ -122,12 +122,12 @@ public class GamePanel extends JPanel implements ActionListener {
 
             if (playerRect.intersects(barrelRect)) {
                 // El jugador choca con un barril: pierde una vida y se reinicia su posición
-                player.loseLife(670, 480);
+                player.loseLife(670, 530);
                 iterator.remove(); // Destruimos el barril que impactó
 
                 // Si se queda sin vidas, se reinicia el juego por completo
                 if (player.getLives() <= 0) {
-                    player = new Player(670, 480, 14, 22);
+                    player = new Player(670, 530, 14, 22);
                     controller = new GameController(player);
                     addKeyListener(controller);
                 }
