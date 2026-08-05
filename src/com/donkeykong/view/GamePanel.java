@@ -1,6 +1,7 @@
 package com.donkeykong.view;
 
 import com.donkeykong.controller.GameController;
+import com.donkeykong.model.Barrel;
 import com.donkeykong.model.Ladder;
 import com.donkeykong.model.Platform;
 import com.donkeykong.model.Player;
@@ -16,36 +17,40 @@ public class GamePanel extends JPanel implements ActionListener {
     private Timer timer;
     private Player player;
     private List<Platform> platforms;
-    private List<Ladder> ladders;
+    private List<Ladder> ladders; // Se mantiene solo para que el jugador suba si gustas
     private GameController controller;
+
+    private List<Barrel> barrels;
+    private int barrelSpawnTimer = 0;
+    private int gameTicks = 0;
+    private final int MAX_GAME_TICKS = 60 * 60;
 
     public GamePanel() {
         setBackground(Color.BLACK);
         setFocusable(true);
 
-        // Inicializar las 5 plataformas estilo zigzag clásico con menor ancho (más espacio libre)
+        // Definimos las plataformas como rampas inclinadas en zigzag
+        // Definición de las plataformas (manteniendo tus inclinaciones actuales)
         platforms = new ArrayList<>();
-        platforms.add(new Platform(70, 550, 620, 10));  // Suelo base (ancho para moverse al inicio)
-        platforms.add(new Platform(70, 430, 625, 10)); // Plataforma 1
-        platforms.add(new Platform(70, 310, 620, 10)); // Plataforma 2
-        platforms.add(new Platform(70, 205, 610, 10)); // Plataforma 3
-        platforms.add(new Platform(70, 95, 600, 10));  // Plataforma superior (Donkey Kong)
+        platforms.add(new Platform(70, 520, 690, 560)); // Nivel 0 (Base)
+        platforms.add(new Platform(120, 460, 690, 420)); // Nivel 1 
+        platforms.add(new Platform(70, 320, 636, 360)); // Nivel 2 
+        platforms.add(new Platform(120, 260, 690, 220)); // Nivel 3 
+        platforms.add(new Platform(70, 120, 636, 160)); // Nivel 4 (Superior)
 
-        // Inicializar las escaleras conectando las plataformas
+        // Escaleras cuadradas perfectamente en los extremos de las rampas
         ladders = new ArrayList<>();
-        ladders.add(new Ladder(150, 440, 17, 110)); // Del suelo base a la Plataforma 1
-        ladders.add(new Ladder(550, 320, 17, 110)); // De Plataforma 1 a Plataforma 2
-        ladders.add(new Ladder(200, 215, 17, 95));  // De Plataforma 2 a Plataforma 3
-        ladders.add(new Ladder(500, 105, 17, 100)); // De Plataforma 3 a la superior
+        ladders.add(new Ladder(120, 460, 17, 65)); // Conecta el extremo derecho del Nivel 0 con el Nivel 1
+        ladders.add(new Ladder(620, 360, 17, 60));  // Conecta el extremo izquierdo del Nivel 1 con el Nivel 2
+        ladders.add(new Ladder(120, 260, 17, 65)); // Conecta el extremo derecho del Nivel 2 con el Nivel 3
+        ladders.add(new Ladder(620, 160, 17, 65));  // Conecta el extremo izquierdo del Nivel 3 con el Nivel Superior
 
-        // Ajustamos la posición inicial del jugador al suelo base
-        player = new Player(80, 480, 14, 22);
+        barrels = new ArrayList<>();
+        player = new Player(670, 480, 14, 22);
 
-        // Controlador de teclado
         controller = new GameController(player);
         addKeyListener(controller);
 
-        // Bucle del juego a 60 FPS (16 ms)
         timer = new Timer(16, this);
         timer.start();
     }
@@ -54,13 +59,98 @@ public class GamePanel extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         player.update(platforms, ladders);
 
-        // Verificar si cayó al vacío
+        // Incrementamos el contador del tiempo de juego (máximo 60 segundos)
+        if (gameTicks < MAX_GAME_TICKS) {
+            gameTicks++;
+        }
+
+        barrelSpawnTimer++;
+        if (barrelSpawnTimer >= 90) { // Frecuencia ajustada de salida de barriles
+            Platform topPlatform = platforms.get(4);
+            int startX = 100;
+            int startY = topPlatform.getYAt(startX) - 24;
+            
+            Barrel newBarrel = new Barrel(startX, startY);
+            newBarrel.setFalling(false);
+            
+            // Aumento progresivo de la velocidad del barril basado en los 60 segundos máximos
+            double progressiveSpeed = 3.0 + (2.5 * ((double) gameTicks / MAX_GAME_TICKS));
+            newBarrel.setSpeedX(progressiveSpeed);
+
+            barrels.add(newBarrel);
+            barrelSpawnTimer = 0;
+        }
+
+        java.util.Iterator<Barrel> iterator = barrels.iterator();
+        while (iterator.hasNext()) {
+            Barrel barrel = iterator.next();
+            barrel.update();
+
+            boolean onAnyPlatform = false;
+            int centerX = barrel.getX() + barrel.getWidth() / 2;
+
+            // 1. SI ESTÁ RODANDO SOBRE UNA RAMPA
+            if (!barrel.isFalling()) {
+                for (int i = 0; i < platforms.size(); i++) {
+                    Platform p = platforms.get(i);
+                    int minX = Math.min(p.getX1(), p.getX2());
+                    int maxX = Math.max(p.getX1(), p.getX2());
+
+                    // Si está en la plataforma base (índice 0) y sale de los límites, se destruye
+                    if (i == 0 && (centerX < minX || centerX > maxX)) {
+                        iterator.remove();
+                        break;
+                    }
+
+                    // Si el centro está estrictamente dentro del rango horizontal de la rampa
+                    if (centerX >= minX && centerX <= maxX) {
+                        int expectedY = p.getYAt(centerX);
+                        
+                        // Mantenemos el barril pegado a la pendiente
+                        if (Math.abs((barrel.getY() + barrel.getHeight()) - expectedY) < 25) {
+                            barrel.setY(expectedY - barrel.getHeight());
+                            onAnyPlatform = true;
+                            break;
+                        }
+                    }
+                }
+
+                // En cuanto el centro del barril rebase el ancho de la rampa, se activa la caída libre vertical
+                if (!onAnyPlatform) {
+                    barrel.setFalling(true);
+                }
+            }
+            // 2. SI ESTÁ CAYENDO EN LÍNEA RECTA AL VACÍO
+            else {
+                for (int i = 0; i < platforms.size(); i++) {
+                    Platform p = platforms.get(i);
+                    int minX = Math.min(p.getX1(), p.getX2()) - 10; // Margen extra a la izquierda
+                    int maxX = Math.max(p.getX1(), p.getX2()) + 10; // Margen extra a la derecha
+
+                    // Si cae dentro del ancho horizontal (con margen) de la plataforma inferior
+                    if (centerX >= minX && centerX <= maxX) {
+                        int expectedY = p.getYAt(centerX);
+                        
+                        // Si la base del barril toca o reasa ligeramente la altura de la rampa bajando
+                        if (barrel.getY() + barrel.getHeight() >= expectedY && 
+                            barrel.getY() + barrel.getHeight() <= expectedY + 25 && 
+                            barrel.getSpeedY() > 0) {
+                            
+                            barrel.setY(expectedY - barrel.getHeight());
+                            barrel.setFalling(false);
+                            barrel.setSpeedY(0);
+                            barrel.reverseDirection(); // Cambia de sentido para rodar en dirección contraria
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         if (player.hasFallenOffScreen(getHeight())) {
-            player.loseLife(80, 480);
+            player.loseLife(670, 480);
             if (player.getLives() <= 0) {
-                // Aquí manejaremos el Game Over definitivo más adelante
-                // Por ahora reinicia las vidas para pruebas continuas
-                player = new Player(80, 480, 14, 22);
+                player = new Player(670, 480, 14, 22);
                 controller = new GameController(player);
                 addKeyListener(controller);
             }
@@ -69,29 +159,37 @@ public class GamePanel extends JPanel implements ActionListener {
         repaint();
     }
 
+
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // Renderizar instrucciones y estado
         g2d.setColor(Color.WHITE);
-        g2d.drawString("Usa A-D para moverte y W para saltar, Usa E para subir escaleras", 50, 30);
+        g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
         g2d.drawString("Vidas: " + player.getLives(), 50, 55);
 
-        // Renderizar escaleras
+        // Dibujar escaleras (opcional para el jugador)
         g2d.setColor(new Color(180, 180, 180));
         for (Ladder ladder : ladders) {
             g2d.fillRect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
         }
 
-        // Renderizar plataformas
-        g2d.setColor(Color.CYAN);
+        // Dibujar plataformas inclinadas (líneas o rampas)
+        g2d.setColor(Color.RED);
+        g2d.setStroke(new BasicStroke(8)); // Grosor para que parezcan barras de rampa
         for (Platform p : platforms) {
-            g2d.fillRect(p.getX(), p.getY(), p.getWidth(), p.getHeight());
+            g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
         }
 
-        // Renderizar jugador
+        // Dibujar barriles
+        g2d.setColor(new Color(139, 69, 19));
+        for (Barrel barrel : barrels) {
+            g2d.fillOval(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
+        }
+
+        // Dibujar jugador
         g2d.setColor(Color.RED);
         g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
     }
