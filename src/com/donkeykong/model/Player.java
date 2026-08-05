@@ -44,39 +44,27 @@ public class Player {
         if (isClimbing) {
             yVelocity = 0;
             if (currentLadder != null) {
-                // Centrar horizontalmente al jugador en la escalera y bloquear movimiento horizontal externo
                 x = currentLadder.getX() + (currentLadder.getWidth() - width) / 2;
             }
         } else {
-            // Movimiento horizontal (A y D) solo cuando NO está escalando
+            // Movimiento horizontal
             x += xVelocity;
-            for (Platform p : platforms) {
-                if (getBounds().intersects(new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight()))) {
-                    if (xVelocity > 0) {
-                        x = p.getX() - width;
-                    } else if (xVelocity < 0) {
-                        x = p.getX() + p.getWidth();
-                    }
-                }
-            }
 
             isOnGround = false;
             yVelocity += GRAVITY;
             y += (int) yVelocity;
 
-            // Colisiones verticales con plataformas (SOLO CUANDO NO ESTÁ ESCALANDO)
+            // Colisiones con plataformas inclinadas (Rampas)
             for (Platform p : platforms) {
-                Rectangle playerRect = getBounds();
-                Rectangle platRect = new Rectangle(p.getX(), p.getY(), p.getWidth(), p.getHeight());
-
-                if (playerRect.intersects(platRect)) {
-                    if (yVelocity > 0) {
-                        y = p.getY() - height;
+                if (p.containsX(x + width / 2)) {
+                    int expectedY = p.getYAt(x + width / 2);
+                    
+                    // Si el jugador cae sobre la rampa o está caminando cerca de ella
+                    if (yVelocity >= 0 && y + height >= expectedY && y + height <= expectedY + 15) {
+                        y = expectedY - height;
                         yVelocity = 0;
                         isOnGround = true;
-                    } else if (yVelocity < 0) {
-                        y = p.getY() + p.getHeight();
-                        yVelocity = 0;
+                        break;
                     }
                 }
             }
@@ -95,9 +83,7 @@ public class Player {
     public void climbUp() {
         if (isOnLadder) {
             isClimbing = true;
-            y -= 3; // Velocidad de subida
-
-            // Si llega arriba de la escalera, sale de ella y se posicione justo encima
+            y -= 3;
             if (currentLadder != null && y < currentLadder.getY()) {
                 isClimbing = false;
                 y = currentLadder.getY() - height;
@@ -109,7 +95,7 @@ public class Player {
     public void climbDown() {
         if (isOnLadder) {
             isClimbing = true;
-            y += 3; // Velocidad de bajada
+            y += 3;
             if (currentLadder != null && y > currentLadder.getY() + currentLadder.getHeight()) {
                 isClimbing = false;
                 currentLadder = null;
