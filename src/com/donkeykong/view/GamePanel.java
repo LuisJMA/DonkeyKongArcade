@@ -20,6 +20,7 @@ public class GamePanel extends JPanel implements ActionListener {
     private List<Platform> platforms;
     private List<Ladder> ladders; 
     private GameController controller;
+    private GameEventListener listener;
 
     private List<Barrel> barrels;
     private int barrelSpawnTimer = 0;
@@ -32,7 +33,8 @@ public class GamePanel extends JPanel implements ActionListener {
     private int itemsCollected = 0;
     private final int TOTAL_ITEMS_TO_WIN = 12;
 
-    public GamePanel() {
+    public GamePanel(GameEventListener listener) {
+        this.listener = listener;
         setBackground(Color.BLACK);
         setFocusable(true);
 
@@ -59,33 +61,13 @@ public class GamePanel extends JPanel implements ActionListener {
         timer.start();
     }
 
-    // Método auxiliar centralizado para reiniciar el juego de forma limpia y segura
-    private void resetGame() {
-        gameTicks = 0;
-        itemsCollected = 0;
-        itemSpawnTimer = 0;
-        barrelSpawnTimer = 0;
-
-        if (items == null) {
-            items = new ArrayList<>();
-        } else {
-            items.clear();
-        }
-
-        if (barrels == null) {
-            barrels = new ArrayList<>();
-        } else {
-            barrels.clear(); // Limpia y borra todos los barriles activos inmediatamente
-        }
-
-        player = new Player(670, 530, 14, 22); 
-        controller = new GameController(player);
-        addKeyListener(controller);
-    }
+    
+    
 
     @Override
     public void actionPerformed(ActionEvent e) {
         boolean shouldReset = false;
+        boolean isVictory = false;
 
         if (gameTicks < MAX_GAME_TICKS) {
             gameTicks++;
@@ -135,6 +117,7 @@ public class GamePanel extends JPanel implements ActionListener {
                     
                     if (itemsCollected >= TOTAL_ITEMS_TO_WIN) {
                         shouldReset = true;
+                        isVictory = true;
                         break;
                     }
                 }
@@ -149,157 +132,166 @@ public class GamePanel extends JPanel implements ActionListener {
             if (barrelSpawnTimer >= currentSpawnInterval) {
                 Platform topPlatform = platforms.get(4);
                 int startX = 100;
-                int startY = topPlatform.getYAt(startX) - 24;
-                
-                Barrel newBarrel = new Barrel(startX, startY);
-                newBarrel.setFalling(false);
-                
-                double progressiveSpeed = 3.0 + (2.5 * ((double) activeTicks / effectiveMaxTicks));
-                newBarrel.setSpeedX(progressiveSpeed);
+                    int startY = topPlatform.getYAt(startX) - 24;
+                    
+                    Barrel newBarrel = new Barrel(startX, startY);
+                    newBarrel.setFalling(false);
+                    
+                    double progressiveSpeed = 3.0 + (2.5 * ((double) activeTicks / effectiveMaxTicks));
+                    newBarrel.setSpeedX(progressiveSpeed);
 
-                barrels.add(newBarrel);
-                barrelSpawnTimer = 0;
-            }
-        }
-
-        // --- ACTUALIZACIÓN Y COLISIÓN DE BARRILES ---
-        if (!shouldReset) {
-            Rectangle playerRect = new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight());
-            java.util.Iterator<Barrel> iterator = barrels.iterator();
-            
-            while (iterator.hasNext()) {
-                Barrel barrel = iterator.next();
-                barrel.update();
-
-                Rectangle barrelRect = new Rectangle(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
-
-                if (playerRect.intersects(barrelRect) && gameTicks > GRACE_PERIOD_TICKS) {
-                    player.loseLife(670, 530);
-                    iterator.remove(); 
-
-                    if (player.getLives() <= 0) {
-                        shouldReset = true;
-                        break;
-                    }
-                    continue; 
+                    barrels.add(newBarrel);
+                    barrelSpawnTimer = 0;
                 }
+            }
 
-                boolean onAnyPlatform = false;
-                int centerX = barrel.getX() + barrel.getWidth() / 2;
+            // --- ACTUALIZACIÓN Y COLISIÓN DE BARRILES ---
+            if (!shouldReset) {
+                Rectangle playerRect = new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+                java.util.Iterator<Barrel> iterator = barrels.iterator();
+                
+                while (iterator.hasNext()) {
+                    Barrel barrel = iterator.next();
+                    barrel.update();
 
-                if (!barrel.isFalling()) {
-                    boolean removeThisBarrel = false;
-                    for (int i = 0; i < platforms.size(); i++) {
-                        Platform p = platforms.get(i);
-                        int minX = Math.min(p.getX1(), p.getX2());
-                        int maxX = Math.max(p.getX1(), p.getX2());
+                    Rectangle barrelRect = new Rectangle(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
 
-                        if (i == 0 && (centerX < minX || centerX > maxX)) {
-                            removeThisBarrel = true;
+                    if (playerRect.intersects(barrelRect) && gameTicks > GRACE_PERIOD_TICKS) {
+                        player.loseLife(670, 530);
+                        iterator.remove(); 
+
+                        if (player.getLives() <= 0) {
+                            shouldReset = true;
                             break;
                         }
+                        continue; 
+                    }
 
-                        if (centerX >= minX && centerX <= maxX) {
-                            int expectedY = p.getYAt(centerX);
-                            
-                            if (Math.abs((barrel.getY() + barrel.getHeight()) - expectedY) < 25) {
-                                barrel.setY(expectedY - barrel.getHeight());
-                                onAnyPlatform = true;
+                    boolean onAnyPlatform = false;
+                    int centerX = barrel.getX() + barrel.getWidth() / 2;
+
+                    if (!barrel.isFalling()) {
+                        boolean removeThisBarrel = false;
+                        for (int i = 0; i < platforms.size(); i++) {
+                            Platform p = platforms.get(i);
+                            int minX = Math.min(p.getX1(), p.getX2());
+                            int maxX = Math.max(p.getX1(), p.getX2());
+
+                            if (i == 0 && (centerX < minX || centerX > maxX)) {
+                                removeThisBarrel = true;
                                 break;
                             }
-                        }
-                    }
 
-                    if (removeThisBarrel) {
-                        iterator.remove();
-                        continue;
-                    }
-
-                    if (!onAnyPlatform) {
-                        barrel.setFalling(true);
-                    }
-                } else {
-                    for (int i = 0; i < platforms.size(); i++) {
-                        Platform p = platforms.get(i);
-                        int minX = Math.min(p.getX1(), p.getX2()) - 10; 
-                        int maxX = Math.max(p.getX1(), p.getX2()) + 10; 
-
-                        if (centerX >= minX && centerX <= maxX) {
-                            int expectedY = p.getYAt(centerX);
-                            
-                            if (barrel.getY() + barrel.getHeight() >= expectedY && 
-                                barrel.getY() + barrel.getHeight() <= expectedY + 25 && 
-                                barrel.getSpeedY() > 0) {
+                            if (centerX >= minX && centerX <= maxX) {
+                                int expectedY = p.getYAt(centerX);
                                 
-                                barrel.setY(expectedY - barrel.getHeight());
-                                barrel.setFalling(false);
-                                barrel.setSpeedY(0);
-                                barrel.reverseDirection(); 
-                                break;
+                                if (Math.abs((barrel.getY() + barrel.getHeight()) - expectedY) < 25) {
+                                    barrel.setY(expectedY - barrel.getHeight());
+                                    onAnyPlatform = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (removeThisBarrel) {
+                            iterator.remove();
+                            continue;
+                        }
+
+                        if (!onAnyPlatform) {
+                            barrel.setFalling(true);
+                        }
+                    } else {
+                        for (int i = 0; i < platforms.size(); i++) {
+                            Platform p = platforms.get(i);
+                            int minX = Math.min(p.getX1(), p.getX2()) - 10; 
+                            int maxX = Math.max(p.getX1(), p.getX2()) + 10; 
+
+                            if (centerX >= minX && centerX <= maxX) {
+                                int expectedY = p.getYAt(centerX);
+                                
+                                if (barrel.getY() + barrel.getHeight() >= expectedY && 
+                                    barrel.getY() + barrel.getHeight() <= expectedY + 25 && 
+                                    barrel.getSpeedY() > 0) {
+                                    
+                                    barrel.setY(expectedY - barrel.getHeight());
+                                    barrel.setFalling(false);
+                                    barrel.setSpeedY(0);
+                                    barrel.reverseDirection(); 
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Si ocurrió un evento de reseteo o game over, se ejecuta aquí de forma segura fuera de los iteradores
-        if (shouldReset) {
-            resetGame();
-        }
-
-        repaint();
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
-
-        g2d.setColor(Color.WHITE);
-        g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
-        g2d.drawString("Vidas: " + player.getLives(), 50, 55);
-        g2d.drawString("Ítems: " + itemsCollected + "/" + TOTAL_ITEMS_TO_WIN, 350, 55);
-
-        if (gameTicks < GRACE_PERIOD_TICKS) {
-            g2d.setColor(Color.YELLOW);
-            g2d.drawString("¡PREPÁRATE!", 200, 55);
-        } else {
-            int activeTicks = gameTicks - GRACE_PERIOD_TICKS;
-            int secondsPassed = activeTicks / 60;
-            int timeLeft = Math.max(0, 60 - secondsPassed); 
-            
-            if (timeLeft <= 10) {
-                g2d.setColor(Color.RED);
-            } else {
-                g2d.setColor(Color.WHITE);
+            // Si ocurrió un evento de fin de juego o victoria, detenemos el timer y notificamos al listener principal
+            if (shouldReset) {
+                timer.stop();
+                if (listener != null) {
+                    if (isVictory) {
+                        listener.onVictory("¡Victoria! Has conseguido los 12 ítems.");
+                    } else {
+                        String reason = (player.getLives() <= 0) ? "Te has quedado sin vidas." : "Se ha acabado el tiempo.";
+                        listener.onGameOver("Game Over: " + reason);
+                    }
+                }
+                return;
             }
-            
-            g2d.drawString("Tiempo: " + timeLeft + "s", 200, 55);
+
+            repaint();
         }
 
-        g2d.setColor(Color.YELLOW);
-        for (Item item : items) {
-            g2d.fillOval(item.getX(), item.getY(), item.getWidth(), item.getHeight());
-        }
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g;
 
-        g2d.setColor(new Color(180, 180, 180));
-        for (Ladder ladder : ladders) {
-            g2d.fillRect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
-        }
+            g2d.setColor(Color.WHITE);
+            g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
+            g2d.drawString("Vidas: " + player.getLives(), 50, 55);
+            g2d.drawString("Ítems: " + itemsCollected + "/" + TOTAL_ITEMS_TO_WIN, 350, 55);
 
-        g2d.setColor(Color.RED);
-        g2d.setStroke(new BasicStroke(8)); 
-        for (Platform p : platforms) {
-            g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
-        }
+            if (gameTicks < GRACE_PERIOD_TICKS) {
+                g2d.setColor(Color.YELLOW);
+                g2d.drawString("¡PREPÁRATE!", 200, 55);
+            } else {
+                int activeTicks = gameTicks - GRACE_PERIOD_TICKS;
+                int secondsPassed = activeTicks / 60;
+                int timeLeft = Math.max(0, 60 - secondsPassed); 
+                
+                if (timeLeft <= 10) {
+                    g2d.setColor(Color.RED);
+                } else {
+                    g2d.setColor(Color.WHITE);
+                }
+                
+                g2d.drawString("Tiempo: " + timeLeft + "s", 200, 55);
+            }
 
-        g2d.setColor(new Color(139, 69, 19));
-        for (Barrel barrel : barrels) {
-            g2d.fillOval(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
-        }
+            g2d.setColor(Color.YELLOW);
+            for (Item item : items) {
+                g2d.fillOval(item.getX(), item.getY(), item.getWidth(), item.getHeight());
+            }
 
-        g2d.setColor(Color.RED);
-        g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+            g2d.setColor(new Color(180, 180, 180));
+            for (Ladder ladder : ladders) {
+                g2d.fillRect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
+            }
+
+            g2d.setColor(Color.RED);
+            g2d.setStroke(new BasicStroke(8)); 
+            for (Platform p : platforms) {
+                g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
+            }
+
+            g2d.setColor(new Color(139, 69, 19));
+            for (Barrel barrel : barrels) {
+                g2d.fillOval(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
+            }
+
+            g2d.setColor(Color.RED);
+            g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+        }
     }
-}
