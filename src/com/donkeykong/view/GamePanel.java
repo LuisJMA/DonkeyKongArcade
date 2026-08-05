@@ -115,6 +115,28 @@ public class GamePanel extends JPanel implements ActionListener {
             Barrel barrel = iterator.next();
             barrel.update();
 
+            // --- NUEVO: COLISIÓN BARRIL VS JUGADOR ---
+            // Creamos rectángulos de colisión aproximados para ambos
+            Rectangle playerRect = new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+            Rectangle barrelRect = new Rectangle(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
+
+            if (playerRect.intersects(barrelRect)) {
+                // El jugador choca con un barril: pierde una vida y se reinicia su posición
+                player.loseLife(670, 480);
+                iterator.remove(); // Destruimos el barril que impactó
+
+                // Si se queda sin vidas, se reinicia el juego por completo
+                if (player.getLives() <= 0) {
+                    player = new Player(670, 480, 14, 22);
+                    controller = new GameController(player);
+                    addKeyListener(controller);
+                }
+                continue; // Pasamos al siguiente barril para evitar errores en el iterador
+            }
+            // ------------------------------------------
+
+            
+
             boolean onAnyPlatform = false;
             int centerX = barrel.getX() + barrel.getWidth() / 2;
 
