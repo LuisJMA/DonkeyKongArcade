@@ -23,26 +23,27 @@ public class GamePanel extends JPanel implements ActionListener {
     private List<Barrel> barrels;
     private int barrelSpawnTimer = 0;
     private int gameTicks = 0;
-    private final int MAX_GAME_TICKS = 60 * 60;
+    private final int MAX_GAME_TICKS = 70 * 60;
+    private final int GRACE_PERIOD_TICKS = 10 * 60; // Los primeros 300 ticks (5 segundos)
 
     public GamePanel() {
         setBackground(Color.BLACK);
         setFocusable(true);
 
         // Definimos las plataformas como rampas inclinadas en zigzag
-        // Definición de las plataformas (manteniendo tus inclinaciones actuales)
+        
         platforms = new ArrayList<>();
-        platforms.add(new Platform(70, 520, 690, 560)); // Nivel 0 (Base)
-        platforms.add(new Platform(120, 460, 690, 420)); // Nivel 1 
-        platforms.add(new Platform(70, 320, 636, 360)); // Nivel 2 
-        platforms.add(new Platform(120, 260, 690, 220)); // Nivel 3 
-        platforms.add(new Platform(70, 120, 636, 160)); // Nivel 4 (Superior)
+        platforms.add(new Platform(40, 520, 710, 560)); // Nivel 0 (Base)
+        platforms.add(new Platform(150, 460, 720, 420)); // Nivel 1 
+        platforms.add(new Platform(40, 320, 615, 360)); // Nivel 2 
+        platforms.add(new Platform(150, 260, 720, 220)); // Nivel 3 
+        platforms.add(new Platform(70, 120, 620, 160)); // Nivel 4 (Superior)
 
         // Escaleras cuadradas perfectamente en los extremos de las rampas
         ladders = new ArrayList<>();
-        ladders.add(new Ladder(120, 460, 17, 65)); // Conecta el extremo derecho del Nivel 0 con el Nivel 1
-        ladders.add(new Ladder(620, 360, 17, 60));  // Conecta el extremo izquierdo del Nivel 1 con el Nivel 2
-        ladders.add(new Ladder(120, 260, 17, 65)); // Conecta el extremo derecho del Nivel 2 con el Nivel 3
+        ladders.add(new Ladder(130, 460, 17, 65)); // Conecta el extremo derecho del Nivel 0 con el Nivel 1
+        ladders.add(new Ladder(620, 360, 17, 65));  // Conecta el extremo izquierdo del Nivel 1 con el Nivel 2
+        ladders.add(new Ladder(130, 260, 17, 65)); // Conecta el extremo derecho del Nivel 2 con el Nivel 3
         ladders.add(new Ladder(620, 160, 17, 65));  // Conecta el extremo izquierdo del Nivel 3 con el Nivel Superior
 
         barrels = new ArrayList<>();
@@ -57,15 +58,43 @@ public class GamePanel extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        player.update(platforms, ladders);
-
-        // Incrementamos el contador del tiempo de juego (máximo 60 segundos)
+        // Incrementamos el contador del tiempo de juego
         if (gameTicks < MAX_GAME_TICKS) {
             gameTicks++;
+        } else {
+            // Si el tiempo llega al límite, se acaba el juego por completo (Game Over por tiempo)
+            gameTicks = 0;
+            player = new Player(670, 480, 14, 22); 
+            barrels.clear(); 
+            controller = new GameController(player);
+            addKeyListener(controller);
         }
 
+        // EL JUGADOR SOLO SE ACTUALIZA SI YA PASÓ EL PERIODO DE GRACIA (Primeros 5 segundos)
+        if (gameTicks > GRACE_PERIOD_TICKS) {
+            player.update(platforms, ladders);
+
+            // Si el jugador cae fuera de la pantalla, consume una vida
+            if (player.hasFallenOffScreen(getHeight())) {
+                player.loseLife(670, 480);
+                if (player.getLives() <= 0) {
+                    player = new Player(670, 480, 14, 22);
+                    controller = new GameController(player);
+                    addKeyListener(controller);
+                }
+            }
+        }
+
+        // GENERACIÓN DE BARRILES (Empieza de inmediato para llenar las rampas)
+        // Calculamos el progreso basado estrictamente en los 60 segundos de juego activo
+        int activeTicks = Math.max(0, gameTicks - GRACE_PERIOD_TICKS);
+        int effectiveMaxTicks = 60 * 60;
+
+        // Intervalo de spawn dinámico progresivo
+        int currentSpawnInterval = (int) (100 - (55 * ((double) activeTicks / effectiveMaxTicks)));
+
         barrelSpawnTimer++;
-        if (barrelSpawnTimer >= 90) { // Frecuencia ajustada de salida de barriles
+        if (barrelSpawnTimer >= currentSpawnInterval) {
             Platform topPlatform = platforms.get(4);
             int startX = 100;
             int startY = topPlatform.getYAt(startX) - 24;
@@ -73,8 +102,8 @@ public class GamePanel extends JPanel implements ActionListener {
             Barrel newBarrel = new Barrel(startX, startY);
             newBarrel.setFalling(false);
             
-            // Aumento progresivo de la velocidad del barril basado en los 60 segundos máximos
-            double progressiveSpeed = 3.0 + (2.5 * ((double) gameTicks / MAX_GAME_TICKS));
+            // Aumento progresivo de la velocidad del barril
+            double progressiveSpeed = 3.0 + (2.5 * ((double) activeTicks / effectiveMaxTicks));
             newBarrel.setSpeedX(progressiveSpeed);
 
             barrels.add(newBarrel);
@@ -147,15 +176,6 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        if (player.hasFallenOffScreen(getHeight())) {
-            player.loseLife(670, 480);
-            if (player.getLives() <= 0) {
-                player = new Player(670, 480, 14, 22);
-                controller = new GameController(player);
-                addKeyListener(controller);
-            }
-        }
-
         repaint();
     }
 
@@ -170,6 +190,26 @@ public class GamePanel extends JPanel implements ActionListener {
         g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
         g2d.drawString("Vidas: " + player.getLives(), 50, 55);
 
+        // --- CÁLCULO Y PINTADO DEL TEMPORIZADOR CON PERIODO DE GRACIA ---
+        if (gameTicks < GRACE_PERIOD_TICKS) {
+            g2d.setColor(Color.YELLOW);
+            g2d.drawString("¡PREPÁRATE!", 200, 55);
+        } else {
+            int activeTicks = gameTicks - GRACE_PERIOD_TICKS;
+            int secondsPassed = activeTicks / 60;
+            int timeLeft = Math.max(0, 60 - secondsPassed); // Cuenta regresiva de 60 a 0
+            
+            // Si quedan 10 segundos o menos, cambia a rojo
+            if (timeLeft <= 10) {
+                g2d.setColor(Color.RED);
+            } else {
+                g2d.setColor(Color.WHITE);
+            }
+            
+            g2d.drawString("Tiempo: " + timeLeft + "s", 200, 55);
+        }
+        // ----------------------------------------------------------------
+
         // Dibujar escaleras (opcional para el jugador)
         g2d.setColor(new Color(180, 180, 180));
         for (Ladder ladder : ladders) {
@@ -178,7 +218,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
         // Dibujar plataformas inclinadas (líneas o rampas)
         g2d.setColor(Color.RED);
-        g2d.setStroke(new BasicStroke(8)); // Grosor para que parezcan barras de rampa
+        g2d.setStroke(new BasicStroke(8)); 
         for (Platform p : platforms) {
             g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
         }
