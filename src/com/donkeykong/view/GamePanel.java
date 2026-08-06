@@ -243,16 +243,18 @@ public class GamePanel extends JPanel implements ActionListener {
             repaint();
         }
 
-        @Override
+                @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2d = (Graphics2D) g;
 
+            // --- TEXTO DE INTERFAZ ---
             g2d.setColor(Color.WHITE);
             g2d.drawString("Usa A-D para moverte y W para saltar", 50, 30);
             g2d.drawString("Vidas: " + player.getLives(), 50, 55);
             g2d.drawString("Ítems: " + itemsCollected + "/" + TOTAL_ITEMS_TO_WIN, 350, 55);
 
+            // --- LÓGICA DE TIEMPO ---
             if (gameTicks < GRACE_PERIOD_TICKS) {
                 g2d.setColor(Color.YELLOW);
                 g2d.drawString("¡PREPÁRATE!", 200, 55);
@@ -270,28 +272,42 @@ public class GamePanel extends JPanel implements ActionListener {
                 g2d.drawString("Tiempo: " + timeLeft + "s", 200, 55);
             }
 
+            // --- DIBUJAR ÍTEMS ---
             g2d.setColor(Color.YELLOW);
             for (Item item : items) {
                 g2d.fillOval(item.getX(), item.getY(), item.getWidth(), item.getHeight());
             }
 
+            // --- DIBUJAR ESCALERAS ---
             g2d.setColor(new Color(180, 180, 180));
             for (Ladder ladder : ladders) {
                 g2d.fillRect(ladder.getX(), ladder.getY(), ladder.getWidth(), ladder.getHeight());
             }
 
+            // --- DIBUJAR PLATAFORMAS ---
             g2d.setColor(Color.RED);
             g2d.setStroke(new BasicStroke(8)); 
             for (Platform p : platforms) {
                 g2d.drawLine(p.getX1(), p.getY1(), p.getX2(), p.getY2());
             }
 
+            // --- DIBUJAR BARRILES ---
             g2d.setColor(new Color(139, 69, 19));
             for (Barrel barrel : barrels) {
                 g2d.fillOval(barrel.getX(), barrel.getY(), barrel.getWidth(), barrel.getHeight());
             }
 
-            g2d.setColor(Color.RED);
-            g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
-        }
-    }
+            // --- DIBUJAR AL JUGADOR (IMAGEN COMPLETA) ---
+                if (player.getSpriteSheet() != null) {
+                    // Como la imagen es el sprite único, dibujamos toda la imagen de extremo a extremo del jugador
+                    g2d.drawImage(player.getSpriteSheet(), 
+                                player.getX(), player.getY(), player.getWidth(), player.getHeight(), 
+                                this);
+                } else {
+                    // Respaldo por si la imagen no carga
+                    g2d.setColor(Color.RED);
+                    g2d.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+                }
+        }   
+
+}
