@@ -1,6 +1,9 @@
 package com.donkeykong.model;
 
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.IOException;
 import java.util.List;
 
 public class Player {
@@ -18,11 +21,23 @@ public class Player {
     private boolean isClimbing = false;
     private Ladder currentLadder = null;
 
+    private BufferedImage spriteSheet; // NUEVO: Hoja de sprites
+
     public Player(int x, int y, int width, int height) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
+        loadSpriteSheet(); // NUEVO: Carga la imagen al instanciar
+    }
+
+    private void loadSpriteSheet() {
+        try {
+            spriteSheet = ImageIO.read(getClass().getResourceAsStream("/com/donkeykong/images/player.png"));
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("No se pudo cargar la imagen del jugador.");
+        }
     }
 
     public void update(List<Platform> platforms, List<Ladder> ladders) {
@@ -151,4 +166,5 @@ public class Player {
     public int getY() { return y; }
     public int getWidth() { return width; }
     public int getHeight() { return height; }
+    public BufferedImage getSpriteSheet() { return spriteSheet; } // NUEVO GETTER
 }
